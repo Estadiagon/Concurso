@@ -2,8 +2,8 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jurados - Maestro en Cortes 2026</title>
-    <!-- Cargamos la librería de Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --pork-pink: #f65275; --pork-orange: #f39200; --dark-gray: #333; }
@@ -15,8 +15,9 @@
         .btn-add { background: var(--pork-pink); padding: 12px 25px; }
         .btn-plus { background: var(--pork-orange); padding: 10px; margin-left: 4px; width: 40px; }
         .btn-minus { background: #eee; color: #666; padding: 10px; width: 40px; }
-        .btn-reset { background: none; color: #bbb; font-size: 0.8em; text-decoration: underline; margin-top: 20px; cursor: pointer; }
+        .btn-reset { background: none; color: #bbb; font-size: 0.8em; text-decoration: underline; margin-top: 20px; cursor: pointer; border: none; }
         input { padding: 12px; border-radius: 10px; border: 2px solid #eee; flex-grow: 1; outline: none; margin-right: 10px; }
+        #status { font-size: 0.8em; color: #aaa; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -26,38 +27,57 @@
     <p style="color:var(--pork-pink); font-weight:bold; margin-bottom:20px;">CALIFICACIÓN JURADOS - 4ta EDICIÓN</p>
 
     <div style="display:flex; margin-bottom:30px;">
-        <input type="text" id="nameIn" placeholder="Nombre del participante...">
+        <input type="text" id="nameIn" placeholder="Nombre del participante..." onkeydown="if(event.key==='Enter') addP()">
         <button class="btn-add" onclick="addP()">Añadir</button>
     </div>
 
     <div id="list"></div>
-    <div class="btn-reset" onclick="resetAll()">Reiniciar concurso para nueva zona</div>
+    <div id="status"></div>
+    <button class="btn-reset" onclick="resetAll()">Reiniciar concurso para nueva zona</button>
 </div>
 
 <script>
-    // CONFIGURACIÓN ÚNICA DE SUPABASE
+    // ⚠️  REEMPLAZA ESTA URL CON LA DE TU PROYECTO EN supabase.com > Settings > API
     const SUPABASE_URL = 'https://uapptgffjuauwunhbvqu.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_ZnGg75rZoPLIAvhnCRum2A_b7jhYgYe';
-    
-    // Inicializamos el cliente una sola vez
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // El objeto global se llama "supabase" (en minúsculas) cuando se carga desde CDN
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function setStatus(msg) {
+        document.getElementById('status').textContent = msg;
+    }
 
     async function fetchAndRender() {
-        const { data: participantes, error } = await supabaseClient
+        const { data: participantes, error } = await db
             .from('participantes')
             .select('*')
             .order('nombre', { ascending: true });
-        
-        if (error) { console.error("Error al obtener datos:", error); return; }
+
+        if (error) {
+            console.error("Error al obtener datos:", error);
+            setStatus('❌ Error de conexión: ' + error.message);
+            return;
+        }
+
+        setStatus('✅ Conectado · ' + participantes.length + ' participantes');
 
         const list = document.getElementById('list');
+        if (participantes.length === 0) {
+            list.innerHTML = '<p style="color:#aaa;">No hay participantes aún.</p>';
+            return;
+        }
+
         list.innerHTML = participantes.map(p => `
             <div class="row">
                 <span style="font-weight:bold;">${p.nombre}</span>
                 <div style="display:flex; align-items:center;">
                     <div class="pts-display">${p.puntos}</div>
-                    <button class="btn-minus" onclick="update(${p.id}, ${p.puntos}, -1)">-1</button>
+                    <button class="btn-minus" onclick="update(${p.id}, ${p.puntos}, -1)">−1</button>
                     <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 1)">+1</button>
+                    <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 2)">+2</button>
+                    <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 3)">+3</button>
+                    <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 4)">+4</button>
                     <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 5)">+5</button>
                 </div>
             </div>
@@ -67,40 +87,48 @@
     async function addP() {
         const nameInput = document.getElementById('nameIn');
         const name = nameInput.value.trim();
-        if(!name) return;
+        if (!name) return;
 
-        const { error } = await supabaseClient
+        const { error } = await db
             .from('participantes')
             .insert([{ nombre: name, puntos: 0 }]);
-        
-        if (error) { alert("Error al añadir: " + error.message); } 
-        else { nameInput.value = ""; fetchAndRender(); }
-    }
 
-    async function update(id, currentPuntos, val) {
-        await supabaseClient
-            .from('participantes')
-            .update({ puntos: currentPuntos + val })
-            .eq('id', id);
-        fetchAndRender();
-    }
-
-    async function resetAll() {
-        if(confirm("¿Borrar todos los participantes?")) {
-            await supabaseClient.from('participantes').delete().gt('id', 0);
+        if (error) {
+            alert("Error al añadir: " + error.message);
+        } else {
+            nameInput.value = "";
             fetchAndRender();
         }
     }
 
-    // Suscripción Realtime
-    supabaseClient
-        .channel('pork-live')
+    async function update(id, currentPuntos, val) {
+        const { error } = await db
+            .from('participantes')
+            .update({ puntos: currentPuntos + val })
+            .eq('id', id);
+        if (error) console.error("Error al actualizar:", error);
+        else fetchAndRender();
+    }
+
+    async function resetAll() {
+        if (confirm("¿Borrar todos los participantes para la nueva zona?")) {
+            const { error } = await db.from('participantes').delete().gt('id', 0);
+            if (error) alert("Error al reiniciar: " + error.message);
+            else fetchAndRender();
+        }
+    }
+
+    // Suscripción Realtime para actualizaciones en vivo
+    db.channel('pork-live')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'participantes' }, () => {
             fetchAndRender();
         })
-        .subscribe();
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') setStatus('🟢 Tiempo real activo');
+        });
 
     window.onload = fetchAndRender;
 </script>
 </body>
 </html>
+
