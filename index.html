@@ -15,6 +15,8 @@
         .btn-add { background: var(--pork-pink); padding: 12px 25px; }
         .btn-plus { background: var(--pork-orange); padding: 10px; margin-left: 4px; width: 40px; }
         .btn-minus { background: #eee; color: #666; padding: 10px; width: 40px; }
+        .btn-edit { background: none; cursor: pointer; padding: 0 5px; color: #aaa; font-size: 1.1em; border: none; }
+        .btn-edit:hover { color: var(--pork-pink); }
         .btn-reset { background: none; color: #bbb; font-size: 0.8em; text-decoration: underline; margin-top: 20px; cursor: pointer; border: none; }
         input { padding: 12px; border-radius: 10px; border: 2px solid #eee; flex-grow: 1; outline: none; margin-right: 10px; }
         #status { font-size: 0.8em; color: #aaa; margin-top: 10px; }
@@ -37,11 +39,9 @@
 </div>
 
 <script>
-    // ⚠️  REEMPLAZA ESTA URL CON LA DE TU PROYECTO EN supabase.com > Settings > API
     const SUPABASE_URL = 'https://uapptgffjuauwunhbvqu.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_ZnGg75rZoPLIAvhnCRum2A_b7jhYgYe';
 
-    // El objeto global se llama "supabase" (en minúsculas) cuando se carga desde CDN
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     function setStatus(msg) {
@@ -70,7 +70,10 @@
 
         list.innerHTML = participantes.map(p => `
             <div class="row">
-                <span style="font-weight:bold;">${p.nombre}</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:bold;">${p.nombre}</span>
+                    <button class="btn-edit" onclick="editName(${p.id}, '${p.nombre}')" title="Editar nombre">✏️</button>
+                </div>
                 <div style="display:flex; align-items:center;">
                     <div class="pts-display">${p.puntos}</div>
                     <button class="btn-minus" onclick="update(${p.id}, ${p.puntos}, -1)">−1</button>
@@ -110,6 +113,15 @@
         else fetchAndRender();
     }
 
+    async function editName(id, oldName) {
+        const newName = prompt("Editar nombre del participante:", oldName);
+        if (newName && newName.trim() !== "" && newName !== oldName) {
+            const { error } = await db.from('participantes').update({ nombre: newName.trim() }).eq('id', id);
+            if (error) alert("Error al editar: " + error.message);
+            else fetchAndRender();
+        }
+    }
+
     async function resetAll() {
         if (confirm("¿Borrar todos los participantes para la nueva zona?")) {
             const { error } = await db.from('participantes').delete().gt('id', 0);
@@ -118,7 +130,6 @@
         }
     }
 
-    // Suscripción Realtime para actualizaciones en vivo
     db.channel('pork-live')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'participantes' }, () => {
             fetchAndRender();
@@ -131,4 +142,3 @@
 </script>
 </body>
 </html>
-
