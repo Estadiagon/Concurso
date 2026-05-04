@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Remoto - Torneo</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1e1e2f; color: #efefef; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: #27293d; padding: 25px; border-radius: 15px; width: 100%; max-width: 600px; }
+        .status { background: #32354a; padding: 10px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #00f2c3; }
+        input { padding: 12px; border-radius: 8px; border: 1px solid #3d3f51; background: #1e1e2f; color: white; margin-bottom: 10px; }
+        button { padding: 10px; cursor: pointer; border-radius: 8px; border: none; font-weight: bold; color: white; }
+        .add-btn { background: #00f2c3; color: #1e1e2f; }
+        .row { display: flex; justify-content: space-between; align-items: center; background: #32354a; margin-bottom: 8px; padding: 10px; border-radius: 8px; }
+        .btn-minus { background: #fd5d93 !important; }
+        .btn-plus { background: #4d7cfe; margin-left: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Panel Admin Remoto</h2>
+    <div class="status">
+        ID de tu Sala: <strong id="my-id">Conectando...</strong><br>
+        <small>(Comparte este ID para que otros se conecten)</small>
+    </div>
+    
+    <div style="display:flex; gap:10px;">
+        <input type="text" id="nameIn" placeholder="Nombre...">
+        <button class="add-btn" onclick="addP()">Añadir</button>
+    </div>
+    
+    <div id="list"></div>
+</div>
+
+<script>
+    let data = JSON.parse(localStorage.getItem('torneo_remoto')) || [];
+    const peer = new Peer(); // Crea un ID aleatorio
+    let connections = [];
+
+    peer.on('open', (id) => {
+        document.getElementById('my-id').innerText = id;
+    });
+
+    // Cuando alguien (un celular) se conecta a ti
+    peer.on('connection', (conn) => {
+        connections.push(conn);
+        conn.on('open', () => {
+            conn.send(sortData()); // Enviar datos actuales al nuevo espectador
+        });
+    });
+
+    function addP() {
+        const n = document.getElementById('nameIn');
+        if(!n.value) return;
+        data.push({ nombre: n.value, puntos: 0 });
+        n.value = "";
+        saveAndSync();
+    }
+
+    function updateScore(i, val) {
+        data[i].puntos += val;
+        saveAndSync();
+    }
+
+    function sortData() {
+        return [...data].sort((a, b) => b.puntos - a.puntos);
+    }
+
+    function saveAndSync() {
+        localStorage.setItem('torneo_remoto', JSON.stringify(data));
+        render();
+        const sorted = sortData();
+        connections.forEach(conn => {
+            if(conn.open) conn.send(sorted);
+        });
+    }
+
+    function render() {
+        const list = document.getElementById('list');
+        list.innerHTML = data.map((p, i) => `
+            <div class="row">
+                <span>${p.nombre} (<b>${p.puntos}</b>)</span>
+                <div>
+                    <button class="btn-minus" onclick="updateScore(${i},-1)">-1</button>
+                    <button class="btn-plus" onclick="updateScore(${i},1)">+1</button>
+                    <button class="btn-plus" onclick="updateScore(${i},5)">+5</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    window.onload = render;
+</script>
+</body>
+</html>
