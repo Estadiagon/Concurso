@@ -4,10 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ranking Maestro en Cortes</title>
-    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="icon" type="image/png" href="Logo.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Fondo gris suave con gradiente radial para dar profundidad */
         body { 
             font-family: 'Arial Black', sans-serif; 
             background: radial-gradient(circle, #ffffff 0%, #f2f2f2 100%); 
@@ -17,77 +16,26 @@
             padding: 20px; 
             min-height: 100vh;
         }
-        
-        .header-card {
-            background: white;
-            display: inline-block;
-            padding: 20px 40px;
-            border-radius: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-            margin-bottom: 30px;
-        }
-        
-        .subtitle-pork { 
-            background: #f65275; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 12px;
-            padding: 10px 30px; 
-            border-radius: 50px; 
-            color: white;
-            font-size: 1em;
-            margin-top: -15px;
-            box-shadow: 0 4px 15px rgba(246, 82, 117, 0.3);
-        }
-
-        .pork-logo-mini {
-            height: 22px;
-            filter: brightness(0) invert(1);
-        }
-
+        .header-card { background: white; display: inline-block; padding: 20px 40px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .subtitle-pork { background: #f65275; display: inline-flex; align-items: center; gap: 12px; padding: 10px 30px; border-radius: 50px; color: white; font-size: 1em; margin-top: -15px; box-shadow: 0 4px 15px rgba(246, 82, 117, 0.3); }
+        .pork-logo-mini { height: 22px; filter: brightness(0) invert(1); }
         .leaderboard { max-width: 700px; margin: 0 auto; }
         
-        /* Tarjetas con efecto de profundidad mejorado */
-        .entry { 
-            display: flex; 
-            align-items: center; 
-            background: white; 
-            margin: 15px 0; 
-            padding: 25px; 
-            border-radius: 20px; 
-            border: 1px solid rgba(0,0,0,0.05);
-            transition: all 0.5s; 
-            box-shadow: 0 8px 15px rgba(0,0,0,0.03); 
-        }
+        .entry { display: flex; align-items: center; background: white; margin: 15px 0; padding: 25px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); transition: all 0.5s; box-shadow: 0 8px 15px rgba(0,0,0,0.03); }
         
         /* PODIO */
-        .rank-1 { 
-            background: linear-gradient(135deg, #f39200 0%, #c6a43e 100%); 
-            transform: scale(1.05); 
-            color: white; 
-            box-shadow: 0 15px 30px rgba(243, 146, 0, 0.25);
-            border: none;
-        }
-        .rank-2 { 
-            background: linear-gradient(135deg, #bdc3c7 0%, #7f8c8d 100%); 
-            transform: scale(1.02); 
-            color: white; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-            border: none;
-        }
-        .rank-3 { 
-            background: linear-gradient(135deg, #cd7f32 0%, #a0522d 100%); 
-            color: white; 
-            box-shadow: 0 10px 20px rgba(160, 82, 45, 0.15);
-            border: none;
-        }
-
+        .rank-1 { background: linear-gradient(135deg, #f39200 0%, #c6a43e 100%); transform: scale(1.05); color: white; box-shadow: 0 15px 30px rgba(243, 146, 0, 0.25); border: none; }
+        .rank-2 { background: linear-gradient(135deg, #bdc3c7 0%, #7f8c8d 100%); transform: scale(1.02); color: white; box-shadow: 0 10px 20px rgba(0,0,0,0.1); border: none; }
+        .rank-3 { background: linear-gradient(135deg, #cd7f32 0%, #a0522d 100%); color: white; box-shadow: 0 10px 20px rgba(160, 82, 45, 0.15); border: none; }
         .rank-1 .pts, .rank-2 .pts, .rank-3 .pts { color: white; }
         
         .num { font-size: 2.2em; width: 70px; font-weight: 900; opacity: 0.9; }
-        .name { flex-grow: 1; text-align: left; font-size: 1.7em; padding-left: 15px; text-transform: uppercase; }
-        .pts { font-size: 2.8em; font-weight: bold; color: #f39200; }
+        .name-container { flex-grow: 1; text-align: left; padding-left: 15px; }
+        .name { font-size: 1.6em; text-transform: uppercase; display: block; }
+        .votos-badge { font-family: 'Segoe UI', sans-serif; font-size: 0.75em; color: #888; font-weight: bold; background: #eee; padding: 2px 8px; border-radius: 10px; display: inline-block; margin-top: 4px; }
+        .rank-1 .votos-badge, .rank-2 .votos-badge, .rank-3 .votos-badge { background: rgba(255,255,255,0.2); color: white; }
         
+        .pts { font-size: 2.8em; font-weight: bold; color: #f39200; }
         #live-dot { display: inline-block; width: 12px; height: 12px; background: #4caf50; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         #status-bar { font-size: 0.9em; color: #999; margin-bottom: 20px; font-weight: bold; }
@@ -112,29 +60,82 @@
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function loadData() {
-            const { data, error } = await db.from('participantes').select('*').order('puntos', { ascending: false });
-            if (error) { document.getElementById('status-bar').textContent = '❌ Error: ' + error.message; return; }
-            render(data);
+            // Obtenemos los participantes actuales
+            const { data: participantes, error: errP } = await db.from('participantes').select('*');
+            // Obtenemos todas las calificaciones registradas por todos los jurados
+            const { data: calificaciones, error: errC } = await db.from('calificaciones').select('*');
+            
+            if (errP || errC) { document.getElementById('status-bar').textContent = '❌ Error de sincronización'; return; }
+            
+            // Calculamos el promedio de calificaciones y nota final ponderada por cada participante
+            const listaProcesada = participantes.map(p => {
+                const lasNotas = calificaciones.filter(c => c.participante_id === p.id);
+                const cantidadJurados = lasNotas.length;
+
+                if (cantidadJurados === 0) {
+                    return { id: p.id, nombre: p.nombre, notaFinal: 0, totalJurados: 0 };
+                }
+
+                // Sumamos los puntajes de todos los jurados que evaluaron a este participante
+                let sumaTecnica = 0, sumaRendimiento = 0, sumaHigiene = 0, sumaParametros = 0, sumaPresentacion = 0;
+                
+                lasNotas.forEach(n => {
+                    sumaTecnica += (n.tecnica || 0);
+                    sumaRendimiento += (n.rendimiento || 0);
+                    sumaHigiene += (n.higiene || 0);
+                    sumaParametros += (n.parametros || 0);
+                    sumaPresentacion += (n.presentacion || 0);
+                });
+
+                // Calculamos promedios aritméticos simples de cada criterio
+                const promTecnica = sumaTecnica / cantidadJurados;
+                const promRendimiento = sumaRendimiento / cantidadJurados;
+                const promHigiene = sumaHigiene / cantidadJurados;
+                const promParametros = sumaParametros / cantidadJurados;
+                const promPresentacion = sumaPresentacion / cantidadJurados;
+
+                // Aplicamos las ponderaciones de la rúbrica oficial sobre el promedio directo obtenido
+                const notaFinalCalculada = (promTecnica * 0.35) + (promRendimiento * 0.25) + (promHigiene * 0.20) + (promParametros * 0.10) + (promPresentacion * 0.10);
+
+                return {
+                    id: p.id,
+                    nombre: p.nombre,
+                    notaFinal: notaFinalCalculada,
+                    totalJurados: cantidadJurados
+                };
+            });
+
+            // Ordenamos la lista de mayor a menor según la nota promedio ponderada
+            listaProcesada.sort((a, b) => b.notaFinal - a.notaFinal);
+            render(listaProcesada);
         }
 
         function render(data) {
             const display = document.getElementById('display');
-            if (!data || data.length === 0) { display.innerHTML = "<p style='color:#888;'>Esperando resultados...</p>"; return; }
+            if (!data || data.length === 0) { display.innerHTML = "<p style='color:#888;'>Esperando el ingreso de datos de jurados...</p>"; return; }
+            
             display.innerHTML = data.map((p, i) => {
                 let podioClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
                 return `
                     <div class="entry ${podioClass}">
                         <div class="num">#${i + 1}</div>
-                        <div class="name">${p.nombre}</div>
-                        <div class="pts">${p.puntos}</div>
+                        <div class="name-container">
+                            <span class="name">${p.nombre}</span>
+                            <span class="votos-badge">${p.totalJurados} ${p.totalJurados === 1 ? 'Jurado calificó' : 'Jurados calificaron'}</span>
+                        </div>
+                        <div class="pts">${p.notaFinal.toFixed(2)}</div>
                     </div>
                 `;
             }).join('');
         }
 
-        db.channel('pork-public').on('postgres_changes', { event: '*', schema: 'public', table: 'participantes' }, () => loadData()).subscribe(s => {
-            if (s === 'SUBSCRIBED') document.getElementById('status-bar').innerHTML = '<span id="live-dot"></span> EN VIVO';
-        });
+        // Suscripción Realtime ante cualquier alteración de competidores o de calificaciones parciales
+        db.channel('pork-public')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'participantes' }, () => loadData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'calificaciones' }, () => loadData())
+          .subscribe(s => {
+              if (s === 'SUBSCRIBED') document.getElementById('status-bar').innerHTML = '<span id="live-dot"></span> EN VIVO CON MULTI-JURADO';
+          });
 
         window.onload = loadData;
     </script>
