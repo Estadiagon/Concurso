@@ -8,59 +8,94 @@
     <style>
         :root { --pork-pink: #f65275; --pork-orange: #f39200; --dark-gray: #333; }
         body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; color: var(--dark-gray); display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 20px; width: 100%; max-width: 750px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-top: 10px solid var(--pork-orange); text-align: center; }
-        .row { display: flex; justify-content: space-between; align-items: center; background: #fff; margin-bottom: 10px; padding: 15px; border-radius: 12px; border: 1px solid #ddd; }
-        .pts-display { font-size: 1.8em; font-weight: bold; color: var(--pork-orange); min-width: 50px; }
+        .container { background: white; padding: 30px; border-radius: 20px; width: 100%; max-width: 850px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-top: 10px solid var(--pork-orange); text-align: center; }
+        
+        .jurado-badge { background: #e0f2f1; color: #004d40; padding: 10px 20px; border-radius: 30px; font-weight: bold; display: inline-block; margin-bottom: 20px; font-size: 0.95em; }
+        
+        .row { background: #fff; margin-bottom: 15px; padding: 20px; border-radius: 12px; border: 1px solid #ddd; text-align: left; }
+        .row-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f2f2f2; padding-bottom: 10px; margin-bottom: 15px; }
+        .criteria-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        .criterion { display: flex; flex-direction: column; font-size: 0.85em; color: #555; }
+        .criterion label { font-weight: bold; margin-bottom: 4px; color: var(--dark-gray); }
+        .criterion input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 1.1em; text-align: center; background: #fffdfa; }
+        .criterion input:focus { border-color: var(--pork-orange); outline: none; background: #fff; }
+        
+        .total-display { font-size: 1.2em; font-weight: bold; color: var(--pork-pink); background: #fff0f3; padding: 5px 12px; border-radius: 8px; }
+        
         button { cursor: pointer; border: none; font-weight: bold; color: white; border-radius: 8px; transition: 0.2s; }
         .btn-add { background: var(--pork-pink); padding: 12px 25px; }
-        .btn-plus { background: var(--pork-orange); padding: 10px; margin-left: 4px; width: 40px; }
-        .btn-minus { background: #eee; color: #666; padding: 10px; width: 40px; }
         .btn-edit { background: none; cursor: pointer; padding: 0 5px; color: #aaa; font-size: 1.1em; border: none; }
         .btn-edit:hover { color: var(--pork-pink); }
         .btn-reset { background: none; color: #bbb; font-size: 0.8em; text-decoration: underline; margin-top: 20px; cursor: pointer; border: none; }
-        input { padding: 12px; border-radius: 10px; border: 2px solid #eee; flex-grow: 1; outline: none; margin-right: 10px; }
+        .input-name { padding: 12px; border-radius: 10px; border: 2px solid #eee; flex-grow: 1; outline: none; margin-right: 10px; font-size: 1em; }
         #status { font-size: 0.8em; color: #aaa; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1 style="margin:0; font-size: 1.5em;">MAESTRO EN CORTES <span style="color:var(--pork-orange);">2026</span></h1>
-    <p style="color:var(--pork-pink); font-weight:bold; margin-bottom:20px;">CALIFICACIÓN JURADOS - 4ta EDICIÓN</p>
+    <h1>MAESTRO EN CORTES <span style="color:var(--pork-orange);">2026</span></h1>
+    <p style="color:var(--pork-pink); font-weight:bold; margin-bottom:10px;">RÚBRICA DE CALIFICACIÓN INDIVIDUAL JURADOS</p>
+    
+    <div id="juradoContainer" class="jurado-badge">Identificando jurado...</div>
 
     <div style="display:flex; margin-bottom:30px;">
-        <input type="text" id="nameIn" placeholder="Nombre del participante..." onkeydown="if(event.key==='Enter') addP()">
+        <input type="text" id="nameIn" class="input-name" placeholder="Nombre del nuevo participante..." onkeydown="if(event.key==='Enter') addP()">
         <button class="btn-add" onclick="addP()">Añadir</button>
     </div>
 
     <div id="list"></div>
     <div id="status"></div>
-    <button class="btn-reset" onclick="resetAll()">Reiniciar concurso para nueva zona</button>
+    <button class="btn-reset" onclick="resetAll()">Reiniciar concurso completo</button>
 </div>
 
 <script>
     const SUPABASE_URL = 'https://uapptgffjuauwunhbvqu.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_ZnGg75rZoPLIAvhnCRum2A_b7jhYgYe';
-
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    function setStatus(msg) {
-        document.getElementById('status').textContent = msg;
+    let nombreJurado = "";
+
+    // Solicitar identificación única del Jurado al cargar la página
+    function inicializarJurado() {
+        nombreJurado = localStorage.getItem("nombre_jurado");
+        if (!nombreJurado || nombreJurado.trim() === "") {
+            nombreJurado = prompt("Por favor, ingrese su Nombre de Jurado o Número de Mesa (Ej: Jurado 1, Mesa A):");
+            if (!nombreJurado || nombreJurado.trim() === "") {
+                nombreJurado = "Jurado Anónimo_" + Math.floor(Math.random() * 100);
+            }
+            localStorage.setItem("nombre_jurado", nombreJurado.trim());
+        }
+        document.getElementById("juradoContainer").innerHTML = `📝 Evaluando como: <strong>${nombreJurado}</strong> <span style="cursor:pointer;margin-left:10px;" onclick="cambiarJurado()">🔄</span>`;
+    }
+
+    function cambiarJurado() {
+        localStorage.removeItem("nombre_jurado");
+        location.reload();
+    }
+
+    function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+    function calcularNotaParcial(calif) {
+        if (!calif) return "0.00";
+        const nTecnica = (calif.tecnica || 0) * 0.35;
+        const nRendimiento = (calif.rendimiento || 0) * 0.25;
+        const nHigiene = (calif.higiene || 0) * 0.20;
+        const nParametros = (calif.parametros || 0) * 0.10;
+        const nPresentacion = (calif.presentacion || 0) * 0.10;
+        return (nTecnica + nRendimiento + nHigiene + nParametros + nPresentacion).toFixed(2);
     }
 
     async function fetchAndRender() {
-        const { data: participantes, error } = await db
-            .from('participantes')
-            .select('*')
-            .order('nombre', { ascending: true });
+        // Traemos participantes
+        const { data: participantes, error: errP } = await db.from('participantes').select('*').order('nombre', { ascending: true });
+        if (errP) { setStatus('❌ Error de conexión'); return; }
+        
+        // Traemos las calificaciones que pertenezcan a ESTE jurado específico
+        const { data: calificaciones, error: errC } = await db.from('calificaciones').select('*').eq('jurado', nombreJurado);
+        if (errC) { console.error(errC); return; }
 
-        if (error) {
-            console.error("Error al obtener datos:", error);
-            setStatus('❌ Error de conexión: ' + error.message);
-            return;
-        }
-
-        setStatus('✅ Conectado · ' + participantes.length + ' participantes');
+        setStatus('✅ Conectado en tiempo real · ' + participantes.length + ' competidores');
 
         const list = document.getElementById('list');
         if (participantes.length === 0) {
@@ -68,77 +103,110 @@
             return;
         }
 
-        list.innerHTML = participantes.map(p => `
-            <div class="row">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-weight:bold;">${p.nombre}</span>
-                    <button class="btn-edit" onclick="editName(${p.id}, '${p.nombre}')" title="Editar nombre">✏️</button>
+        list.innerHTML = participantes.map(p => {
+            // Buscamos si este jurado ya guardó una calificación para este participante
+            const miCalificacion = calificaciones.find(c => c.participante_id === p.id) || {
+                tecnica: 0, rendimiento: 0, higiene: 0, parametros: 0, presentacion: 0
+            };
+
+            return `
+                <div class="row">
+                    <div class="row-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-weight:bold; font-size:1.2em;">${p.nombre}</span>
+                            <button class="btn-edit" onclick="editName(${p.id}, '${p.nombre}')" title="Editar nombre">✏️</button>
+                        </div>
+                        <div class="total-display">Mi Nota: ${calcularNotaParcial(miCalificacion)}</div>
+                    </div>
+                    <div class="criteria-grid">
+                        <div class="criterion">
+                            <label>Técnica (35%)</label>
+                            <input type="number" min="0" max="10" step="0.1" value="${miCalificacion.tecnica}" onchange="guardarNota(${p.id}, 'tecnica', this.value)">
+                        </div>
+                        <div class="criterion">
+                            <label>Rendimiento (25%)</label>
+                            <input type="number" min="0" max="10" step="0.1" value="${miCalificacion.rendimiento}" onchange="guardarNota(${p.id}, 'rendimiento', this.value)">
+                        </div>
+                        <div class="criterion">
+                            <label>Higiene (20%)</label>
+                            <input type="number" min="0" max="10" step="0.1" value="${miCalificacion.higiene}" onchange="guardarNota(${p.id}, 'higiene', this.value)">
+                        </div>
+                        <div class="criterion">
+                            <label>Parámetros (10%)</label>
+                            <input type="number" min="0" max="10" step="0.1" value="${miCalificacion.parametros}" onchange="guardarNota(${p.id}, 'parametros', this.value)">
+                        </div>
+                        <div class="criterion">
+                            <label>Presentación (10%)</label>
+                            <input type="number" min="0" max="10" step="0.1" value="${miCalificacion.presentacion}" onchange="guardarNota(${p.id}, 'presentacion', this.value)">
+                        </div>
+                    </div>
                 </div>
-                <div style="display:flex; align-items:center;">
-                    <div class="pts-display">${p.puntos}</div>
-                    <button class="btn-minus" onclick="update(${p.id}, ${p.puntos}, -1)">−1</button>
-                    <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 1)">+1</button>
-                    <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 2)">+2</button>
-                    <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 3)">+3</button>
-                    <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 4)">+4</button>
-                    <button class="btn-plus" onclick="update(${p.id}, ${p.puntos}, 5)">+5</button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     async function addP() {
         const nameInput = document.getElementById('nameIn');
         const name = nameInput.value.trim();
         if (!name) return;
-
-        const { error } = await db
-            .from('participantes')
-            .insert([{ nombre: name, puntos: 0 }]);
-
-        if (error) {
-            alert("Error al añadir: " + error.message);
-        } else {
-            nameInput.value = "";
-            fetchAndRender();
-        }
+        await db.from('participantes').insert([{ nombre: name }]);
+        nameInput.value = "";
+        fetchAndRender();
     }
 
-    async function update(id, currentPuntos, val) {
-        const { error } = await db
-            .from('participantes')
-            .update({ puntos: currentPuntos + val })
-            .eq('id', id);
-        if (error) console.error("Error al actualizar:", error);
-        else fetchAndRender();
+    async function guardarNota(participanteId, criterio, valor) {
+        const valNum = parseFloat(valor) || 0;
+
+        // 1. Verificamos si este jurado ya tiene una fila para este participante
+        const { data } = await db.from('calificaciones')
+            .select('id')
+            .eq('participante_id', participanteId)
+            .eq('jurado', nombreJurado);
+
+        if (data && data.length > 0) {
+            // Si ya existe, actualizamos el criterio específico
+            await db.from('calificaciones')
+                .update({ [criterio]: valNum })
+                .eq('id', data[0].id);
+        } else {
+            // Si no existe, insertamos el nuevo registro base con la nota inicializada
+            const nuevaFila = {
+                participante_id: participanteId,
+                jurado: nombreJurado,
+                tecnica: 0, rendimiento: 0, higiene: 0, parametros: 0, presentacion: 0
+            };
+            nuevaFila[criterio] = valNum;
+            await db.from('calificaciones').insert([nuevaFila]);
+        }
+        fetchAndRender();
     }
 
     async function editName(id, oldName) {
         const newName = prompt("Editar nombre del participante:", oldName);
         if (newName && newName.trim() !== "" && newName !== oldName) {
-            const { error } = await db.from('participantes').update({ nombre: newName.trim() }).eq('id', id);
-            if (error) alert("Error al editar: " + error.message);
-            else fetchAndRender();
+            await db.from('participantes').update({ nombre: newName.trim() }).eq('id', id);
+            fetchAndRender();
         }
     }
 
     async function resetAll() {
-        if (confirm("¿Borrar todos los participantes para la nueva zona?")) {
-            const { error } = await db.from('participantes').delete().gt('id', 0);
-            if (error) alert("Error al reiniciar: " + error.message);
-            else fetchAndRender();
+        if (confirm("⚠️ ¿Estás seguro? Esto borrará TODOS los participantes y TODAS las calificaciones de todos los jurados.")) {
+            await db.from('calificaciones').delete().gt('id', 0);
+            await db.from('participantes').delete().gt('id', 0);
+            fetchAndRender();
         }
     }
 
+    // Escuchamos los cambios globales en ambas tablas para actualizar la vista en vivo
     db.channel('pork-live')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'participantes' }, () => {
-            fetchAndRender();
-        })
-        .subscribe((status) => {
-            if (status === 'SUBSCRIBED') setStatus('🟢 Tiempo real activo');
-        });
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'participantes' }, () => fetchAndRender())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calificaciones' }, () => fetchAndRender())
+      .subscribe();
 
-    window.onload = fetchAndRender;
+    window.onload = () => {
+        inicializarJurado();
+        fetchAndRender();
+    };
 </script>
 </body>
 </html>
