@@ -28,6 +28,12 @@
         .btn-edit:hover { color: var(--pork-pink); }
         .btn-reset { background: none; color: #bbb; font-size: 0.8em; text-decoration: underline; margin-top: 20px; cursor: pointer; border: none; }
         .input-name { padding: 12px; border-radius: 10px; border: 2px solid #eee; flex-grow: 1; outline: none; margin-right: 10px; font-size: 1em; }
+        
+        /* Estilos específicos para la barra de búsqueda */
+        .search-container { display: flex; margin-bottom: 20px; position: relative; }
+        .input-search { padding: 10px 15px; border-radius: 8px; border: 1px solid #ddd; width: 100%; outline: none; font-size: 0.95em; background: #fafafa; transition: 0.3s; }
+        .input-search:focus { border-color: var(--pork-pink); background: #fff; box-shadow: 0 0 8px rgba(246, 82, 117, 0.15); }
+
         #status { font-size: 0.8em; color: #aaa; margin-top: 10px; }
     </style>
 </head>
@@ -39,9 +45,13 @@
     
     <div id="juradoContainer" class="jurado-badge">Identificando jurado...</div>
 
-    <div style="display:flex; margin-bottom:30px;">
+    <div style="display:flex; margin-bottom:20px;">
         <input type="text" id="nameIn" class="input-name" placeholder="Nombre del nuevo participante..." onkeydown="if(event.key==='Enter') addP()">
         <button class="btn-add" onclick="addP()">Añadir</button>
+    </div>
+
+    <div class="search-container">
+        <input type="text" id="searchIn" class="input-search" placeholder="🔍 Buscar participante por nombre..." oninput="filtrarLista()">
     </div>
 
     <div id="list"></div>
@@ -55,8 +65,9 @@
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let nombreJurado = "";
+    let datosLocalesParticipantes = []; // Almacén en memoria para filtrar rápido
+    let datosLocalesCalificaciones = [];
 
-    // Solicitar identificación única del Jurado al cargar la página
     function inicializarJurado() {
         nombreJurado = localStorage.getItem("nombre_jurado");
         if (!nombreJurado || nombreJurado.trim() === "") {
@@ -87,25 +98,44 @@
     }
 
     async function fetchAndRender() {
-        // Traemos participantes
         const { data: participantes, error: errP } = await db.from('participantes').select('*').order('nombre', { ascending: true });
         if (errP) { setStatus('❌ Error de conexión'); return; }
         
-        // Traemos las calificaciones que pertenezcan a ESTE jurado específico
         const { data: calificaciones, error: errC } = await db.from('calificaciones').select('*').eq('jurado', nombreJurado);
         if (errC) { console.error(errC); return; }
 
         setStatus('✅ Conectado en tiempo real · ' + participantes.length + ' competidores');
 
+        // Guardamos una copia en nuestras variables globales en memoria
+        datosLocalesParticipantes = participantes;
+        datosLocalesCalificaciones = calificaciones;
+
+        // Renderizamos la lista completa aplicando el filtro que haya escrito actualmente el usuario
+        filtrarLista();
+    }
+
+    // NUEVA: Función para procesar y mostrar solo lo que coincide con la búsqueda
+    function filtrarLista() {
+        const textoBusqueda = document.getElementById('searchIn').value.toLowerCase().trim();
         const list = document.getElementById('list');
-        if (participantes.length === 0) {
+
+        if (datosLocalesParticipantes.length === 0) {
             list.innerHTML = '<p style="color:#aaa;">No hay participantes aún.</p>';
             return;
         }
 
-        list.innerHTML = participantes.map(p => {
-            // Buscamos si este jurado ya guardó una calificación para este participante
-            const miCalificacion = calificaciones.find(c => c.participante_id === p.id) || {
+        // Filtramos el array basándonos en el nombre del participante
+        const filtrados = datosLocalesParticipantes.filter(p => 
+            p.nombre.toLowerCase().includes(textoBusqueda)
+        );
+
+        if (filtrados.length === 0) {
+            list.innerHTML = '<p style="color:#aaa;">No se encontraron participantes con ese nombre.</p>';
+            return;
+        }
+
+        list.innerHTML = filtrados.map(p => {
+            const miCalificacion = datosLocalesCalificaciones.find(c => c.participante_id === p.id) || {
                 tecnica: 0, rendimiento: 0, higiene: 0, parametros: 0, presentacion: 0
             };
 
@@ -157,19 +187,16 @@
     async function guardarNota(participanteId, criterio, valor) {
         const valNum = parseFloat(valor) || 0;
 
-        // 1. Verificamos si este jurado ya tiene una fila para este participante
         const { data } = await db.from('calificaciones')
             .select('id')
             .eq('participante_id', participanteId)
             .eq('jurado', nombreJurado);
 
         if (data && data.length > 0) {
-            // Si ya existe, actualizamos el criterio específico
             await db.from('calificaciones')
                 .update({ [criterio]: valNum })
                 .eq('id', data[0].id);
         } else {
-            // Si no existe, insertamos el nuevo registro base con la nota inicializada
             const nuevaFila = {
                 participante_id: participanteId,
                 jurado: nombreJurado,
@@ -193,11 +220,11 @@
         if (confirm("⚠️ ¿Estás seguro? Esto borrará TODOS los participantes y TODAS las calificaciones de todos los jurados.")) {
             await db.from('calificaciones').delete().gt('id', 0);
             await db.from('participantes').delete().gt('id', 0);
+            document.getElementById('searchIn').value = ""; // Limpiamos buscador al resetear
             fetchAndRender();
         }
     }
 
-    // Escuchamos los cambios globales en ambas tablas para actualizar la vista en vivo
     db.channel('pork-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'participantes' }, () => fetchAndRender())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'calificaciones' }, () => fetchAndRender())
