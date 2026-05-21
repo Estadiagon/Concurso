@@ -16,33 +16,24 @@
             padding: 20px; 
             min-height: 100vh;
         }
-        .header-card { background: white; display: inline-block; padding: 20px 40px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .header-card { background: white; display: inline-block; padding: 20px 40px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 15px; }
         .subtitle-pork { background: #f65275; display: inline-flex; align-items: center; gap: 12px; padding: 10px 30px; border-radius: 50px; color: white; font-size: 1em; margin-top: -15px; box-shadow: 0 4px 15px rgba(246, 82, 117, 0.3); }
         .pork-logo-mini { height: 22px; filter: brightness(0) invert(1); }
         
-        /* Contenedor del patrocinador */
-        .sponsor-container {
-            margin: 10px auto 25px auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
-        .sponsor-title {
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 0.75em;
-            font-weight: bold;
-            color: #777;
-            letter-spacing: 2px;
-        }
-        .sponsor-logo {
-            max-width: 130px;
+        .sponsor-logo-only {
+            max-width: 120px;
             height: auto;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.06));
+            margin: 10px auto 15px auto;
+            display: block;
+            border-radius: 50%;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
         }
 
+        .zone-filter-container { margin-bottom: 25px; }
+        .zone-view-select { padding: 8px 16px; border-radius: 20px; border: 2px solid #ccc; font-family: 'Segoe UI', sans-serif; font-weight: bold; font-size: 1em; outline: none; cursor: pointer; background: white; }
+        .zone-view-select:focus { border-color: #f39200; }
+
         .leaderboard { max-width: 700px; margin: 0 auto; }
-        
         .entry { display: flex; align-items: center; background: white; margin: 15px 0; padding: 25px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); transition: all 0.5s; box-shadow: 0 8px 15px rgba(0,0,0,0.03); }
         
         /* PODIO */
@@ -58,7 +49,7 @@
         .rank-1 .votos-badge, .rank-2 .votos-badge, .rank-3 .votos-badge { background: rgba(255,255,255,0.2); color: white; }
         
         .pts { font-size: 2.8em; font-weight: bold; color: #f39200; }
-        #live-dot { inline-block; width: 12px; height: 12px; background: #4caf50; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
+        #live-dot { display: inline-block; width: 12px; height: 12px; background: #4caf50; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         #status-bar { font-size: 0.9em; color: #999; margin-bottom: 20px; font-weight: bold; }
     </style>
@@ -67,15 +58,23 @@
     <div class="header-card">
         <img src="Maestros.png" alt="Maestro en Cortes 2026" style="max-width: 260px; height: auto;">
         <br>
-        <div class="subtitle-pork">
+        <div class="subtitle-pork {">
             <span>4ta EDICIÓN - 2026</span>
             <img src="porkcolombia.png" class="pork-logo-mini" alt="Porkcolombia">
         </div>
     </div>
 
-    <div class="sponsor-container">
-        <span class="sponsor-title">CERDO PATROCINADO POR:</span>
-        <img src="sello.png" class="sponsor-logo" alt="Sello de Calidad Porkcolombia">
+    <img src="sello.png" class="sponsor-logo-only" alt="Sello Círculo de Oro PIC">
+
+    <div class="zone-filter-container">
+        <select id="zoneViewSelect" class="zone-view-select" onchange="cambiarZonaFiltro()">
+            <option value="Bogota - Guadalupe">Sede: Bogotá - Frigorífico Guadalupe</option>
+            <option value="Medellin">Sede: Medellín - Central Ganadera</option>
+            <option value="Pereira">Sede: Pereira - Planta de Beneficio OINC</option>
+            <option value="Barranquilla">Sede: Barranquilla - Frigorífico Santa Cruz</option>
+            <option value="Bogota - BLE">Sede: Bogotá - BLE</option>
+            <option value="Cali">Sede: Cali - Carnes y Derivados de Occidente</option>
+        </select>
     </div>
 
     <div id="status-bar">Conectando...</div>
@@ -85,6 +84,13 @@
         const SUPABASE_URL = 'https://uapptgffjuauwunhbvqu.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_ZnGg75rZoPLIAvhnCRum2A_b7jhYgYe';
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let zonaFiltro = "Bogota - Guadalupe";
+
+        function cambiarZonaFiltro() {
+            zonaFiltro = document.getElementById("zoneViewSelect").value;
+            loadData();
+        }
 
         function calcularNotaFinal(p) {
             const nTecnica = (p.tecnica || 0) * 0.35;
@@ -96,7 +102,8 @@
         }
 
         async function loadData() {
-            const { data: participantes, error: errP } = await db.from('participantes').select('*');
+            // Traer todos los participantes amarrados a la zona seleccionada en la pantalla
+            const { data: participantes, error: errP } = await db.from('participantes').select('*').eq('zona', zonaFiltro);
             const { data: calificaciones, error: errC } = await db.from('calificaciones').select('*');
             
             if (errP || errC) { document.getElementById('status-bar').textContent = '❌ Error de sincronización'; return; }
@@ -141,7 +148,7 @@
 
         function render(data) {
             const display = document.getElementById('display');
-            if (!data || data.length === 0) { display.innerHTML = "<p style='color:#888;'>Esperando el ingreso de datos de jurados...</p>"; return; }
+            if (!data || data.length === 0) { display.innerHTML = "<p style='color:#888;'>Esperando el ingreso de datos de jurados para esta sede...</p>"; return; }
             
             display.innerHTML = data.map((p, i) => {
                 let podioClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
