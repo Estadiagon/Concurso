@@ -16,9 +16,31 @@
             padding: 20px; 
             min-height: 100vh;
         }
-        .header-card { background: white; display: inline-block; padding: 20px 40px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .header-card { background: white; display: inline-block; padding: 20px 40px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .subtitle-pork { background: #f65275; display: inline-flex; align-items: center; gap: 12px; padding: 10px 30px; border-radius: 50px; color: white; font-size: 1em; margin-top: -15px; box-shadow: 0 4px 15px rgba(246, 82, 117, 0.3); }
         .pork-logo-mini { height: 22px; filter: brightness(0) invert(1); }
+        
+        /* Contenedor del patrocinador */
+        .sponsor-container {
+            margin: 10px auto 25px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .sponsor-title {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 0.75em;
+            font-weight: bold;
+            color: #777;
+            letter-spacing: 2px;
+        }
+        .sponsor-logo {
+            max-width: 130px;
+            height: auto;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.06));
+        }
+
         .leaderboard { max-width: 700px; margin: 0 auto; }
         
         .entry { display: flex; align-items: center; background: white; margin: 15px 0; padding: 25px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); transition: all 0.5s; box-shadow: 0 8px 15px rgba(0,0,0,0.03); }
@@ -36,7 +58,7 @@
         .rank-1 .votos-badge, .rank-2 .votos-badge, .rank-3 .votos-badge { background: rgba(255,255,255,0.2); color: white; }
         
         .pts { font-size: 2.8em; font-weight: bold; color: #f39200; }
-        #live-dot { display: inline-block; width: 12px; height: 12px; background: #4caf50; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
+        #live-dot { inline-block; width: 12px; height: 12px; background: #4caf50; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         #status-bar { font-size: 0.9em; color: #999; margin-bottom: 20px; font-weight: bold; }
     </style>
@@ -51,6 +73,11 @@
         </div>
     </div>
 
+    <div class="sponsor-container">
+        <span class="sponsor-title">CERDO PATROCINADO POR:</span>
+        <img src="sello.png" class="sponsor-logo" alt="Sello de Calidad Porkcolombia">
+    </div>
+
     <div id="status-bar">Conectando...</div>
     <div id="display" class="leaderboard">Cargando maestros...</div>
 
@@ -59,15 +86,21 @@
         const SUPABASE_KEY = 'sb_publishable_ZnGg75rZoPLIAvhnCRum2A_b7jhYgYe';
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        function calcularNotaFinal(p) {
+            const nTecnica = (p.tecnica || 0) * 0.35;
+            const nRendimiento = (p.rendimiento || 0) * 0.25;
+            const nHigiene = (p.higiene || 0) * 0.20;
+            const nParametros = (p.parametros || 0) * 0.10;
+            const nPresentacion = (p.presentacion || 0) * 0.10;
+            return nTecnica + nRendimiento + nHigiene + nParametros + nPresentacion;
+        }
+
         async function loadData() {
-            // Obtenemos los participantes actuales
             const { data: participantes, error: errP } = await db.from('participantes').select('*');
-            // Obtenemos todas las calificaciones registradas por todos los jurados
             const { data: calificaciones, error: errC } = await db.from('calificaciones').select('*');
             
             if (errP || errC) { document.getElementById('status-bar').textContent = '❌ Error de sincronización'; return; }
             
-            // Calculamos el promedio de calificaciones y nota final ponderada por cada participante
             const listaProcesada = participantes.map(p => {
                 const lasNotas = calificaciones.filter(c => c.participante_id === p.id);
                 const cantidadJurados = lasNotas.length;
@@ -76,7 +109,6 @@
                     return { id: p.id, nombre: p.nombre, notaFinal: 0, totalJurados: 0 };
                 }
 
-                // Sumamos los puntajes de todos los jurados que evaluaron a este participante
                 let sumaTecnica = 0, sumaRendimiento = 0, sumaHigiene = 0, sumaParametros = 0, sumaPresentacion = 0;
                 
                 lasNotas.forEach(n => {
@@ -87,14 +119,12 @@
                     sumaPresentacion += (n.presentacion || 0);
                 });
 
-                // Calculamos promedios aritméticos simples de cada criterio
                 const promTecnica = sumaTecnica / cantidadJurados;
                 const promRendimiento = sumaRendimiento / cantidadJurados;
                 const promHigiene = sumaHigiene / cantidadJurados;
                 const promParametros = sumaParametros / cantidadJurados;
                 const promPresentacion = sumaPresentacion / cantidadJurados;
 
-                // Aplicamos las ponderaciones de la rúbrica oficial sobre el promedio directo obtenido
                 const notaFinalCalculada = (promTecnica * 0.35) + (promRendimiento * 0.25) + (promHigiene * 0.20) + (promParametros * 0.10) + (promPresentacion * 0.10);
 
                 return {
@@ -105,7 +135,6 @@
                 };
             });
 
-            // Ordenamos la lista de mayor a menor según la nota promedio ponderada
             listaProcesada.sort((a, b) => b.notaFinal - a.notaFinal);
             render(listaProcesada);
         }
@@ -129,7 +158,6 @@
             }).join('');
         }
 
-        // Suscripción Realtime ante cualquier alteración de competidores o de calificaciones parciales
         db.channel('pork-public')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'participantes' }, () => loadData())
           .on('postgres_changes', { event: '*', schema: 'public', table: 'calificaciones' }, () => loadData())
