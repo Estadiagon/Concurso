@@ -11,6 +11,7 @@
         .container { background: white; padding: 30px; border-radius: 20px; width: 100%; max-width: 850px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-top: 10px solid var(--pork-orange); text-align: center; }
         
         .jurado-badge { background: #e0f2f1; color: #004d40; padding: 10px 20px; border-radius: 30px; font-weight: bold; display: inline-block; margin-bottom: 20px; font-size: 0.95em; }
+        .zone-select { padding: 10px; border-radius: 8px; border: 2px solid var(--pork-orange); font-size: 1em; font-weight: bold; color: var(--dark-gray); margin-bottom: 20px; width: 100%; max-width: 300px; outline: none; }
         
         .row { background: #fff; margin-bottom: 15px; padding: 20px; border-radius: 12px; border: 1px solid #ddd; text-align: left; }
         .row-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f2f2f2; padding-bottom: 10px; margin-bottom: 15px; }
@@ -26,10 +27,8 @@
         .btn-add { background: var(--pork-pink); padding: 12px 25px; }
         .btn-edit { background: none; cursor: pointer; padding: 0 5px; color: #aaa; font-size: 1.1em; border: none; }
         .btn-edit:hover { color: var(--pork-pink); }
-        .btn-reset { background: none; color: #bbb; font-size: 0.8em; text-decoration: underline; margin-top: 20px; cursor: pointer; border: none; }
         .input-name { padding: 12px; border-radius: 10px; border: 2px solid #eee; flex-grow: 1; outline: none; margin-right: 10px; font-size: 1em; }
         
-        /* Estilos específicos para la barra de búsqueda */
         .search-container { display: flex; margin-bottom: 20px; position: relative; }
         .input-search { padding: 10px 15px; border-radius: 8px; border: 1px solid #ddd; width: 100%; outline: none; font-size: 0.95em; background: #fafafa; transition: 0.3s; }
         .input-search:focus { border-color: var(--pork-pink); background: #fff; box-shadow: 0 0 8px rgba(246, 82, 117, 0.15); }
@@ -44,6 +43,16 @@
     <p style="color:var(--pork-pink); font-weight:bold; margin-bottom:10px;">RÚBRICA DE CALIFICACIÓN INDIVIDUAL JURADOS</p>
     
     <div id="juradoContainer" class="jurado-badge">Identificando jurado...</div>
+    <br>
+    
+    <select id="zoneSelect" class="zone-select" onchange="cambiarZona()">
+        <option value="Bogota - Guadalupe">Bogotá - Frigorífico Guadalupe</option>
+        <option value="Medellin">Medellín - Central Ganadera</option>
+        <option value="Pereira">Pereira - Planta de Beneficio OINC</option>
+        <option value="Barranquilla">Barranquilla - Frigorífico Santa Cruz</option>
+        <option value="Bogota - BLE">Bogotá - BLE</option>
+        <option value="Cali">Cali - Carnes y Derivados de Occidente</option>
+    </select>
 
     <div style="display:flex; margin-bottom:20px;">
         <input type="text" id="nameIn" class="input-name" placeholder="Nombre del nuevo participante..." onkeydown="if(event.key==='Enter') addP()">
@@ -56,7 +65,6 @@
 
     <div id="list"></div>
     <div id="status"></div>
-    <button class="btn-reset" onclick="resetAll()">Reiniciar concurso completo</button>
 </div>
 
 <script>
@@ -65,7 +73,8 @@
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let nombreJurado = "";
-    let datosLocalesParticipantes = []; // Almacén en memoria para filtrar rápido
+    let zonaActual = "Bogota - Guadalupe";
+    let datosLocalesParticipantes = []; 
     let datosLocalesCalificaciones = [];
 
     function inicializarJurado() {
@@ -78,11 +87,23 @@
             localStorage.setItem("nombre_jurado", nombreJurado.trim());
         }
         document.getElementById("juradoContainer").innerHTML = `📝 Evaluando como: <strong>${nombreJurado}</strong> <span style="cursor:pointer;margin-left:10px;" onclick="cambiarJurado()">🔄</span>`;
+        
+        // Mantener la última zona seleccionada en caché local si existe
+        if(localStorage.getItem("zona_actual")) {
+            zonaActual = localStorage.getItem("zona_actual");
+            document.getElementById("zoneSelect").value = zonaActual;
+        }
     }
 
     function cambiarJurado() {
         localStorage.removeItem("nombre_jurado");
         location.reload();
+    }
+
+    function cambiarZona() {
+        zonaActual = document.getElementById("zoneSelect").value;
+        localStorage.setItem("zona_actual", zonaActual);
+        fetchAndRender();
     }
 
     function setStatus(msg) { document.getElementById('status').textContent = msg; }
@@ -98,39 +119,34 @@
     }
 
     async function fetchAndRender() {
-        const { data: participantes, error: errP } = await db.from('participantes').select('*').order('nombre', { ascending: true });
+        // Filtrar desde la consulta de Supabase solo los de la zona seleccionada
+        const { data: participantes, error: errP } = await db.from('participantes').select('*').eq('zona', zonaActual).order('nombre', { ascending: true });
         if (errP) { setStatus('❌ Error de conexión'); return; }
         
         const { data: calificaciones, error: errC } = await db.from('calificaciones').select('*').eq('jurado', nombreJurado);
         if (errC) { console.error(errC); return; }
 
-        setStatus('✅ Conectado en tiempo real · ' + participantes.length + ' competidores');
+        setStatus(`✅ Sede: ${zonaActual} · ` + participantes.length + ' competidores activos');
 
-        // Guardamos una copia en nuestras variables globales en memoria
         datosLocalesParticipantes = participantes;
         datosLocalesCalificaciones = calificaciones;
 
-        // Renderizamos la lista completa aplicando el filtro que haya escrito actualmente el usuario
         filtrarLista();
     }
 
-    // NUEVA: Función para procesar y mostrar solo lo que coincide con la búsqueda
     function filtrarLista() {
         const textoBusqueda = document.getElementById('searchIn').value.toLowerCase().trim();
         const list = document.getElementById('list');
 
         if (datosLocalesParticipantes.length === 0) {
-            list.innerHTML = '<p style="color:#aaa;">No hay participantes aún.</p>';
+            list.innerHTML = '<p style="color:#aaa;">No hay participantes registrados en esta ciudad.</p>';
             return;
         }
 
-        // Filtramos el array basándonos en el nombre del participante
-        const filtrados = datosLocalesParticipantes.filter(p => 
-            p.nombre.toLowerCase().includes(textoBusqueda)
-        );
+        const filtrados = datosLocalesParticipantes.filter(p => p.nombre.toLowerCase().includes(textoBusqueda));
 
         if (filtrados.length === 0) {
-            list.innerHTML = '<p style="color:#aaa;">No se encontraron participantes con ese nombre.</p>';
+            list.innerHTML = '<p style="color:#aaa;">No se encontraron participantes.</p>';
             return;
         }
 
@@ -179,23 +195,18 @@
         const nameInput = document.getElementById('nameIn');
         const name = nameInput.value.trim();
         if (!name) return;
-        await db.from('participantes').insert([{ nombre: name }]);
+        // Se añade amarrando al participante a la zona actual
+        await db.from('participantes').insert([{ nombre: name, zona: zonaActual }]);
         nameInput.value = "";
         fetchAndRender();
     }
 
     async function guardarNota(participanteId, criterio, valor) {
         const valNum = parseFloat(valor) || 0;
-
-        const { data } = await db.from('calificaciones')
-            .select('id')
-            .eq('participante_id', participanteId)
-            .eq('jurado', nombreJurado);
+        const { data } = await db.from('calificaciones').select('id').eq('participante_id', participanteId).eq('jurado', nombreJurado);
 
         if (data && data.length > 0) {
-            await db.from('calificaciones')
-                .update({ [criterio]: valNum })
-                .eq('id', data[0].id);
+            await db.from('calificaciones').update({ [criterio]: valNum }).eq('id', data[0].id);
         } else {
             const nuevaFila = {
                 participante_id: participanteId,
@@ -212,15 +223,6 @@
         const newName = prompt("Editar nombre del participante:", oldName);
         if (newName && newName.trim() !== "" && newName !== oldName) {
             await db.from('participantes').update({ nombre: newName.trim() }).eq('id', id);
-            fetchAndRender();
-        }
-    }
-
-    async function resetAll() {
-        if (confirm("⚠️ ¿Estás seguro? Esto borrará TODOS los participantes y TODAS las calificaciones de todos los jurados.")) {
-            await db.from('calificaciones').delete().gt('id', 0);
-            await db.from('participantes').delete().gt('id', 0);
-            document.getElementById('searchIn').value = ""; // Limpiamos buscador al resetear
             fetchAndRender();
         }
     }
