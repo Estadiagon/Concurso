@@ -52,6 +52,7 @@
         <option value="Barranquilla">Barranquilla - Frigorífico Santa Cruz</option>
         <option value="Bogota - BLE">Bogotá - BLE</option>
         <option value="Cali">Cali - Carnes y Derivados de Occidente</option>
+        <option value="Bogota - Corferias">Bogotá - Corferias</option>
     </select>
 
     <div style="display:flex; margin-bottom:20px;">
@@ -88,7 +89,6 @@
         }
         document.getElementById("juradoContainer").innerHTML = `📝 Evaluando como: <strong>${nombreJurado}</strong> <span style="cursor:pointer;margin-left:10px;" onclick="cambiarJurado()">🔄</span>`;
         
-        // Mantener la última zona seleccionada en caché local si existe
         if(localStorage.getItem("zona_actual")) {
             zonaActual = localStorage.getItem("zona_actual");
             document.getElementById("zoneSelect").value = zonaActual;
@@ -119,7 +119,6 @@
     }
 
     async function fetchAndRender() {
-        // Filtrar desde la consulta de Supabase solo los de la zona seleccionada
         const { data: participantes, error: errP } = await db.from('participantes').select('*').eq('zona', zonaActual).order('nombre', { ascending: true });
         if (errP) { setStatus('❌ Error de conexión'); return; }
         
@@ -195,7 +194,6 @@
         const nameInput = document.getElementById('nameIn');
         const name = nameInput.value.trim();
         if (!name) return;
-        // Se añade amarrando al participante a la zona actual
         await db.from('participantes').insert([{ nombre: name, zona: zonaActual }]);
         nameInput.value = "";
         fetchAndRender();
