@@ -58,7 +58,7 @@
     <div class="header-card">
         <img src="Maestros.png" alt="Maestro en Cortes 2026" style="max-width: 260px; height: auto;">
         <br>
-        <div class="subtitle-pork {">
+        <div class="subtitle-pork">
             <span>4ta EDICIÓN - 2026</span>
             <img src="porkcolombia.png" class="pork-logo-mini" alt="Porkcolombia">
         </div>
@@ -74,6 +74,7 @@
             <option value="Barranquilla">Sede: Barranquilla - Frigorífico Santa Cruz</option>
             <option value="Bogota - BLE">Sede: Bogotá - BLE</option>
             <option value="Cali">Sede: Cali - Carnes y Derivados de Occidente</option>
+            <option value="Bogota - Corferias">Sede: Bogotá - Corferias (Gran Final)</option>
         </select>
     </div>
 
@@ -102,7 +103,6 @@
         }
 
         async function loadData() {
-            // Traer todos los participantes amarrados a la zona seleccionada en la pantalla
             const { data: participantes, error: errP } = await db.from('participantes').select('*').eq('zona', zonaFiltro);
             const { data: calificaciones, error: errC } = await db.from('calificaciones').select('*');
             
@@ -152,11 +152,20 @@
             
             display.innerHTML = data.map((p, i) => {
                 let podioClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+                
+                let displayName = p.nombre;
+                
+                // Si la sede seleccionada es Corferias, extraemos únicamente los números del final del nombre
+                if (zonaFiltro === "Bogota - Corferias") {
+                    const extraeNumeros = p.nombre.match(/\d+$/); // Busca los dígitos al final de la cadena
+                    displayName = extraeNumeros ? `PARTICIPANTE #${extraeNumeros[0]}` : `PARTICIPANTE #${p.id}`;
+                }
+
                 return `
                     <div class="entry ${podioClass}">
                         <div class="num">#${i + 1}</div>
                         <div class="name-container">
-                            <span class="name">${p.nombre}</span>
+                            <span class="name">${displayName}</span>
                             <span class="votos-badge">${p.totalJurados} ${p.totalJurados === 1 ? 'Jurado calificó' : 'Jurados calificaron'}</span>
                         </div>
                         <div class="pts">${p.notaFinal.toFixed(2)}</div>
